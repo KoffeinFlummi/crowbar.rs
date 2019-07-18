@@ -532,10 +532,26 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             }
         }
 
-        // TODO: multiple UV sets
         let num_uvsets = reader.read_u32::<LittleEndian>()?;
         if num_uvs > 0 {
-            assert_eq!(num_uvsets, 1);
+            for _i in 1..num_uvsets {
+                let _uv_scale: (f32, f32, f32, f32) = (
+                    reader.read_f32::<LittleEndian>()?,
+                    reader.read_f32::<LittleEndian>()?,
+                    reader.read_f32::<LittleEndian>()?,
+                    reader.read_f32::<LittleEndian>()?);
+
+                let num_uvs = reader.read_u32::<LittleEndian>()?;
+
+                let fill = reader.read_u8()?;
+                if fill == 1 {
+                    reader.seek(SeekFrom::Current(4))?;
+                } else if fill == 0 {
+                    read_compressed_array(&mut reader, (num_uvs * 4) as usize)?;
+                } else {
+                    unreachable!();
+                }
+            }
         }
 
         assert_eq!(reader.read_u32::<LittleEndian>()?, num_points);
