@@ -289,7 +289,61 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
     println!("0x{:x}", reader.seek(SeekFrom::Current(0))?);
 
     let animations = reader.read_u8()?;
-    assert_eq!(animations, 0);
+    if animations > 0 {
+        let num_anims = reader.read_u32::<LittleEndian>()?;
+        println!("  num anims: {}", num_anims);
+        let mut animtypes: Vec<u32> = Vec::with_capacity(num_anims as usize);
+        for _i in 0..num_anims {
+            let animtype = reader.read_u32::<LittleEndian>()?;
+            animtypes.push(animtype);
+            println!("    - {}", reader.read_cstring()?);
+            println!("      type: 0x{:x}", animtype);
+            println!("      source: \"{}\"", reader.read_cstring()?);
+            println!("      value: {:?} - {:?}",
+                reader.read_f32::<LittleEndian>()?,
+                reader.read_f32::<LittleEndian>()?);
+            println!("      phase: {:?} - {:?}",
+                reader.read_f32::<LittleEndian>()?,
+                reader.read_f32::<LittleEndian>()?);
+            reader.seek(SeekFrom::Current(4))?;
+            //assert_eq!(reader.read_u32::<LittleEndian>()?, 0x38d1b717);
+            assert_eq!(reader.read_u32::<LittleEndian>()?, 0);
+            println!("      source address: {}", reader.read_u32::<LittleEndian>()?);
+
+            if animtype <= 3 {
+                println!("      angle: {:?} - {:?}",
+                    reader.read_f32::<LittleEndian>()?,
+                    reader.read_f32::<LittleEndian>()?);
+            } else if animtype <= 7 {
+                println!("      offset: {:?} - {:?}",
+                    reader.read_f32::<LittleEndian>()?,
+                    reader.read_f32::<LittleEndian>()?);
+            } else if animtype == 8 {
+                reader.seek(SeekFrom::Current(4*4))?;
+            } else {
+                println!("      hide: {:?}", reader.read_f32::<LittleEndian>()?);
+                println!("      unhide: {:?}", reader.read_f32::<LittleEndian>()?);
+            }
+        }
+
+        let num_resolutions = reader.read_u32::<LittleEndian>()?;
+        println!("  num resolutions: {}", num_resolutions);
+        for _i in 0..num_resolutions {
+            let num_bones = reader.read_u32::<LittleEndian>()?;
+            for _j in 0..num_bones {
+                let num_anims = reader.read_u32::<LittleEndian>()?;
+                reader.seek(SeekFrom::Current((num_anims * 4) as i64));
+            }
+        }
+        for _i in 0..num_resolutions {
+            for animtype in animtypes.iter() {
+                let bone_name_index = reader.read_i32::<LittleEndian>()?;
+                if bone_name_index != -1 && *animtype < 8 {
+                    reader.seek(SeekFrom::Current(2 * 12));
+                }
+            }
+        }
+    }
 
     let mut lod_indices: Vec<u32> = Vec::with_capacity(num_lods as usize);
     for _i in 0..num_lods {
