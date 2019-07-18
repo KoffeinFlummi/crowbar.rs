@@ -457,22 +457,22 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             reader.seek(SeekFrom::Current(3*4))?;
 
             let texture_index = reader.read_u16::<LittleEndian>()?;
-            println!("    texture index: {}", texture_index);
+            println!("      texture index: {}", texture_index);
 
             reader.seek(SeekFrom::Current(4))?;
 
             let material_index = reader.read_i32::<LittleEndian>()?;
-            println!("    material index: {}", material_index);
+            println!("      material index: {}", material_index);
             if material_index == -1 {
                 reader.seek(SeekFrom::Current(1))?;
             }
 
             let num_stages = reader.read_u32::<LittleEndian>()?;
-            println!("    num stages: {}", num_stages);
+            println!("      num stages: {}", num_stages);
             reader.seek(SeekFrom::Current((4*num_stages) as i64))?;
 
             let coll_info = reader.read_u32::<LittleEndian>()?;
-            println!("    coll info: {}", coll_info);
+            println!("      coll info: {}", coll_info);
             if coll_info > 0 {
                 reader.seek(SeekFrom::Current(2*12 + 4 + 12 + 4))?;
             }
@@ -500,25 +500,31 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             println!("    - {}", name);
 
             let num_f = reader.read_u32::<LittleEndian>()?;
+            println!("      num faces: {}", num_f);
             if num_f > 0 {
-                reader.seek(SeekFrom::Current((1 + 4*num_f) as i64))?;
+                read_compressed_array(&mut reader, (num_f * 4) as usize)?;
             }
 
-            reader.seek(SeekFrom::Current(5))?;
+            let c = reader.read_u32::<LittleEndian>()?;
+            reader.seek(SeekFrom::Current((c*4) as i64))?;
+
+            reader.seek(SeekFrom::Current(1))?;
 
             let num_s = reader.read_u32::<LittleEndian>()?;
+            println!("      num sections: {}", num_s);
             if num_s > 0 {
-                reader.seek(SeekFrom::Current((1 + 4*num_s) as i64))?;
+                read_compressed_array(&mut reader, (num_s * 4) as usize)?;
             }
 
             let num_v = reader.read_u32::<LittleEndian>()?;
+            println!("      num vertices: {}", num_v);
             if num_v > 0 {
-                reader.seek(SeekFrom::Current((1 + 4*num_v) as i64))?;
+                read_compressed_array(&mut reader, (num_v * 4) as usize)?;
             }
 
             let num_w = reader.read_u32::<LittleEndian>()?;
             if num_w > 0 {
-                reader.seek(SeekFrom::Current((1 + num_w) as i64))?;
+                read_compressed_array(&mut reader, num_w as usize)?;
             }
         }
 
