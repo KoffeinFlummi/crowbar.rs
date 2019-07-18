@@ -556,7 +556,11 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
 
         for p in points {
             lod.points.push(Point {
-                coords: p,
+                coords: (
+                    p.0 + bounding_center.0,
+                    p.1 + bounding_center.1,
+                    p.2 + bounding_center.2
+                ),
                 flags: 0
             });
             lod.face_normals.push((0.0, 0.0, 0.0)); // TODO
