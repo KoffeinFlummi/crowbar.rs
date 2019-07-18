@@ -1,0 +1,17 @@
+[package]
+name = "crowbar-rs"
+version = "0.1.0"
+authors = ["KoffeinFlummi <koffeinflummi@protonmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "crowbar"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+docopt = "1"
+byteorder = "1"
+linked-hash-map = "0.5.1"
+armake2 = "0.3.0"
+minilzo = "*"
