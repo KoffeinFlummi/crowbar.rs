@@ -128,8 +128,100 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
         lods.push(lod);
     }
 
-    // skip rest of model config
-    reader.seek(SeekFrom::Current(216))?;
+    println!("index: 0x{:x}", reader.read_u32::<LittleEndian>()?);
+
+    println!("mem lod sphere: {}", reader.read_f32::<LittleEndian>()?);
+    println!("geo lod sphere: {}", reader.read_f32::<LittleEndian>()?);
+
+    println!("point flags: {:x}, {:x}, {:x}",
+        reader.read_u32::<LittleEndian>()?,
+        reader.read_u32::<LittleEndian>()?,
+        reader.read_u32::<LittleEndian>()?);
+
+    let offset_1 = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("offset 1: {:?}", offset_1);
+
+    println!("map icon color: {:x}", reader.read_u32::<LittleEndian>()?);
+    println!("map selected color: {:x}", reader.read_u32::<LittleEndian>()?);
+
+    let view_density = reader.read_f32::<LittleEndian>()?;
+    println!("view density: {}", view_density);
+
+    let bbox_min = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    let bbox_max = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("bounding box: {:?} - {:?}", bbox_min, bbox_max);
+
+    println!("lod density coef: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("draw importance: {:?}", reader.read_f32::<LittleEndian>()?);
+
+    let bbox_visual_min = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    let bbox_visual_max = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("bounding box visual: {:?} - {:?}", bbox_visual_min, bbox_visual_max);
+
+    let bounding_center = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("bounding center: {:?}", bounding_center);
+
+    let geometry_center = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("geometry center: {:?}", geometry_center);
+
+    let cog_offset = (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?);
+    println!("cog offset: {:?}", cog_offset);
+
+    println!("inv inertia: {:?}", (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?));
+    println!("             {:?}", (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?));
+    println!("             {:?}", (
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?,
+        reader.read_f32::<LittleEndian>()?));
+
+    println!("autocenter: 0x{:x}", reader.read_u8()?);
+    println!("lock autocenter: 0x{:x}", reader.read_u8()?);
+    println!("can occlude: 0x{:x}", reader.read_u8()?);
+    println!("can be occluded: 0x{:x}", reader.read_u8()?);
+    println!("ai cover: 0x{:x}", reader.read_u8()?);
+
+    println!("skeleton ht min: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("skeleton ht max: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("skeleton af max: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("skeleton mf max: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("skeleton mf act: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("skeleton t body: {:?}", reader.read_f32::<LittleEndian>()?);
+
+    println!("force not alpha: 0x{:x}", reader.read_u8()?);
+    println!("sb source: {}", reader.read_i32::<LittleEndian>()?);
+    println!("prefer shadow volume: 0x{:x}", reader.read_u8()?);
+    println!("shadow offset: {}", reader.read_f32::<LittleEndian>()?);
+    println!("animated: 0x{:x}", reader.read_u8()?);
 
     let skeleton_name = reader.read_cstring()?;
     println!("skeleton name: \"{}\"", skeleton_name);
@@ -143,11 +235,58 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             let parent = reader.read_cstring()?;
             println!("  - {} -> {}", name, parent);
         }
-        reader.seek(SeekFrom::Current(1))?;
+        assert_eq!(reader.read_u8()?, 0);
     }
 
+    println!("map type: 0x{:x}", reader.read_u8()?);
+
+    let num_floats = reader.read_u32::<LittleEndian>()?;
+    println!("num floats: {}", num_floats);
+    reader.seek(SeekFrom::Current((num_floats * 4) as i64))?;
+
+    println!("mass: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("mass inv: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("armor: {:?}", reader.read_f32::<LittleEndian>()?);
+    println!("armor inv: {:?}", reader.read_f32::<LittleEndian>()?);
+
+    println!("lod indices:");
+    println!("  memory: {}", reader.read_i8()?);
+    println!("  geometry: {}", reader.read_i8()?);
+    println!("  geometry simple: {}", reader.read_i8()?);
+    println!("  geometry physx: {}", reader.read_i8()?);
+    println!("  geometry fire: {}", reader.read_i8()?);
+    println!("  geometry view: {}", reader.read_i8()?);
+    println!("  geometry view pilot: {}", reader.read_i8()?);
+    println!("  geometry view gunner: {}", reader.read_i8()?);
+    println!("  geometry view commander: {}", reader.read_i8()?);
+    println!("  geometry view cargo: {}", reader.read_i8()?);
+    println!("  land contact: {}", reader.read_i8()?);
+    println!("  roadway: {}", reader.read_i8()?);
+    println!("  paths: {}", reader.read_i8()?);
+    println!("  hitpoints: {}", reader.read_i8()?);
+
+    reader.seek(SeekFrom::Current(4))?;
+
     println!("0x{:x}", reader.seek(SeekFrom::Current(0))?);
-    reader.seek(SeekFrom::Current((1 + 4 + 4*4 + 14 + 4 + 1 + 2*1 + 1 + 4 + 4 + 12*num_lods) as i64))?;
+
+    println!("min shadow: {}", reader.read_u32::<LittleEndian>()?);
+    println!("can blend: 0x{:x}", reader.read_u8()?);
+
+    println!("0x{:x}", reader.seek(SeekFrom::Current(0))?);
+
+    println!("class type: \"{}\"", reader.read_cstring()?);
+    println!("destruct type: \"{}\"", reader.read_cstring()?);
+
+    reader.seek(SeekFrom::Current((1 + 4) as i64))?;
+
+    println!("lod defaults:");
+    for _i in 0..num_lods {
+        println!("  - {:x} {:x} {:x}",
+            reader.read_u32::<LittleEndian>()?,
+            reader.read_u32::<LittleEndian>()?,
+            reader.read_u32::<LittleEndian>()?);
+    }
+    println!("0x{:x}", reader.seek(SeekFrom::Current(0))?);
 
     let animations = reader.read_u8()?;
     assert_eq!(animations, 0);
@@ -160,7 +299,7 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
     println!("lod indices: {:?}", lod_indices);
 
     for (i, lod) in lods.iter_mut().enumerate() {
-        println!("LOD {}", lod.resolution);
+        println!("LOD {} (0x{:x})", lod.resolution, lod_indices[i]);
         reader.seek(SeekFrom::Start(lod_indices[i] as u64))?;
 
         let num_proxies = reader.read_u32::<LittleEndian>()?;
@@ -393,7 +532,11 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             }
         }
 
-        reader.seek(SeekFrom::Current(4))?;
+        // TODO: multiple UV sets
+        let num_uvsets = reader.read_u32::<LittleEndian>()?;
+        if num_uvs > 0 {
+            assert_eq!(num_uvsets, 1);
+        }
 
         assert_eq!(reader.read_u32::<LittleEndian>()?, num_points);
         println!("  num points: {}", num_points);
