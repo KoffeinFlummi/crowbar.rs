@@ -449,10 +449,12 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
 
         let num_sections = reader.read_u32::<LittleEndian>()?;
         println!("  num sections: {}", num_sections);
+        let mut sections: Vec<(u32, u32)> = Vec::with_capacity(num_sections as usize);
         for _i in 0..num_sections {
             let face_from = reader.read_u32::<LittleEndian>()?;
             let face_to = reader.read_u32::<LittleEndian>()?;
             println!("    - {} - {}", face_from, face_to);
+            sections.push((face_from, face_to));
 
             reader.seek(SeekFrom::Current(3*4))?;
 
@@ -495,14 +497,19 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
         // TODO: handle selections properly
         let num_selections = reader.read_u32::<LittleEndian>()?;
         println!("  num selections: {}", num_selections);
+        let mut selections: Vec<(String, Vec<u32>, Vec<u32>, Vec<u32>, Vec<u8>)> = Vec::with_capacity(num_selections as usize);
         for _i in 0..num_selections {
             let name = reader.read_cstring()?;
             println!("    - {}", name);
 
             let num_f = reader.read_u32::<LittleEndian>()?;
             println!("      num faces: {}", num_f);
+            let mut faces: Vec<u32> = Vec::with_capacity(num_f as usize);
             if num_f > 0 {
-                read_compressed_array(&mut reader, (num_f * 4) as usize)?;
+                let mut cursor = Cursor::new(read_compressed_array(&mut reader, (num_f * 4) as usize)?);
+                for _j in 0..num_f {
+                    faces.push(cursor.read_u32::<LittleEndian>()?);
+                }
             }
 
             let c = reader.read_u32::<LittleEndian>()?;
@@ -512,20 +519,32 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
 
             let num_s = reader.read_u32::<LittleEndian>()?;
             println!("      num sections: {}", num_s);
+            let mut sections: Vec<u32> = Vec::with_capacity(num_s as usize);
             if num_s > 0 {
-                read_compressed_array(&mut reader, (num_s * 4) as usize)?;
+                let mut cursor = Cursor::new(read_compressed_array(&mut reader, (num_s * 4) as usize)?);
+                for _j in 0..num_s {
+                    sections.push(cursor.read_u32::<LittleEndian>()?);
+                }
             }
 
             let num_v = reader.read_u32::<LittleEndian>()?;
             println!("      num vertices: {}", num_v);
+            let mut verts: Vec<u32> = Vec::with_capacity(num_v as usize);
             if num_v > 0 {
-                read_compressed_array(&mut reader, (num_v * 4) as usize)?;
+                let mut cursor = Cursor::new(read_compressed_array(&mut reader, (num_v * 4) as usize)?);
+                for _j in 0..num_v {
+                    verts.push(cursor.read_u32::<LittleEndian>()?);
+                }
             }
 
             let num_w = reader.read_u32::<LittleEndian>()?;
-            if num_w > 0 {
-                read_compressed_array(&mut reader, num_w as usize)?;
-            }
+            let vertweights: Vec<u8> = if num_w > 0 {
+                read_compressed_array(&mut reader, num_w as usize)?
+            } else {
+                Vec::new()
+            };
+
+            selections.push((name, faces, sections, verts, vertweights));
         }
 
         let num_properties = reader.read_u32::<LittleEndian>()?;
@@ -642,8 +661,8 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             lod.face_normals.push((0.0, 0.0, 0.0)); // TODO
         }
 
-        for (verts, t, m) in faces {
-            let vertices: Vec<Vertex> = verts.iter().map(|i| Vertex {
+        for (verts, t, m) in faces.iter() {
+            let vertices: Vec<Vertex> = verts.iter().rev().map(|i| Vertex {
                 point_index: *i,
                 normal_index: *i,
                 uv: uvs[*i as usize],
@@ -652,9 +671,48 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
             lod.faces.push(Face {
                 vertices,
                 flags: 0,
-                texture: textures.get(t).map(|t| t.clone()).unwrap_or(String::new()),
-                material: materials.get(m).map(|t| t.clone()).unwrap_or(String::new())
+                texture: textures.get(*t).map(|t| t.clone()).unwrap_or(String::new()),
+                material: materials.get(*m).map(|t| t.clone()).unwrap_or(String::new())
             })
+        }
+
+        for (name, selfaces, selsections, selverts, mut selvertweights) in selections {
+            if selvertweights.len() == 0 {
+                selvertweights = Vec::with_capacity(selverts.len());
+                selvertweights.resize(selverts.len(), 0x1);
+            }
+
+            assert_eq!(selverts.len(), selvertweights.len());
+
+            let mut mlod_verts: Vec<u8> = Vec::with_capacity(num_points as usize);
+            let mut mlod_faces: Vec<u8> = Vec::with_capacity(num_faces as usize);
+            mlod_verts.resize(num_points as usize, 0);
+            mlod_faces.resize(num_faces as usize, 0);
+
+            for i in selfaces {
+                mlod_faces[i as usize] = 0x1;
+            }
+
+            for s in selsections {
+                let section = sections[s as usize];
+                for i in section.0..section.1 {
+                    if i >= num_faces {
+                        break;
+                    }
+
+                    mlod_faces[i as usize] = 0x1;
+                    for j in faces[i as usize].0.iter() {
+                        mlod_verts[*j as usize] = 0x1;
+                    }
+                }
+            }
+
+            for (i,w) in selverts.iter().zip(selvertweights.iter()) {
+                mlod_verts[*i as usize] = *w;
+            }
+
+            mlod_verts.append(&mut mlod_faces);
+            lod.taggs.insert(name, mlod_verts.into_boxed_slice());
         }
     }
 
