@@ -307,7 +307,8 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
                 reader.read_f32::<LittleEndian>()?);
             reader.seek(SeekFrom::Current(4))?;
             //assert_eq!(reader.read_u32::<LittleEndian>()?, 0x38d1b717);
-            assert_eq!(reader.read_u32::<LittleEndian>()?, 0);
+            //assert_eq!(reader.read_u32::<LittleEndian>()?, 0);
+            reader.read_u32::<LittleEndian>()?;
             println!("      source address: {}", reader.read_u32::<LittleEndian>()?);
 
             if animtype <= 3 {
