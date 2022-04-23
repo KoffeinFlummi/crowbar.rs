@@ -100,7 +100,7 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
     let version = reader.read_u32::<LittleEndian>()?;
     println!("version: {}", version);
 
-    assert_eq!(version, 73);
+    assert!(version == 71 || version == 73);
 
     let appid = reader.read_u32::<LittleEndian>()?;
     println!("appid: {}", appid);
@@ -277,7 +277,7 @@ fn read_odol(path: PathBuf) -> Result<P3D, Error> {
     println!("class type: \"{}\"", reader.read_cstring()?);
     println!("destruct type: \"{}\"", reader.read_cstring()?);
 
-    reader.seek(SeekFrom::Current((1 + 4) as i64))?;
+    reader.seek(SeekFrom::Current((if version >= 73 { 1 } else { 0 } + 4) as i64))?;
 
     println!("lod defaults:");
     for _i in 0..num_lods {
